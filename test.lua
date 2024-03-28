@@ -1,6 +1,7 @@
 BRIDGE_BLOCK_SLOT = 1
 TORCH_SLOT = 2
 INVENTORY_SLOT_COUNT = 16
+WORKING_SLOT = 16
 
 BridgeBlockItem = nil
 TorchItem = nil
@@ -31,14 +32,16 @@ function setupInventory()
     local slotState = nil
     local currentCount = turtle.getItemCount(i)
     if (currentCount > 0) then
-      slotState = SlotState:create({Item = turtle.getItemDetail(i), Count = currentCount})
+      slotState = SlotState:create({Item = turtle.getItemDetail(i).name, Count = currentCount})
       ValuableItems[slotState.Item] = true
       PreferredItems[slotState.Item] = true
       if (i == BRIDGE_BLOCK_SLOT) then
+        WriteLine("Bridge block item found: " .. slotState.Item)
         BridgeBlockItem = slotState.Item
         ValuableItems[slotState.Item] = nil
       end
       if (i == TORCH_SLOT) then
+        WriteLine("Torch item found: " .. slotState.Item)
         TorchItem = slotState.Item
         ValuableItems[slotState.Item] = nil
       end
@@ -47,6 +50,48 @@ function setupInventory()
     end
     Slots[i] = slotState
   end
+end
+
+-- performs multiple inventory management and cleanup tasks
+function storeToSlot()
+  local item = turtle.getItemDetail(WORKING_SLOT)
+  local count = turtle.getItemCount(WORKING_SLOT)
+  if (item == nil) then
+    return
+  end
+  item = item.name
+  Slots[WORKING_SLOT].Item = item
+  Slots[WORKING_SLOT].Count = count
+
+  local slot = 0
+  local freeSpace = 0
+  while (slot ~= -1 and slot < INVENTORY_SLOT_COUNT + 1) do
+    slot = findNextSlotOfItemType(slot + 1, item)
+    if (slot == -1 or slot == WORKING_SLOT) then
+      slot = getNextFreeSlot(1)
+      if (slot ~= -1) then
+        transferItemsFromTo(WORKING_SLOT, slot, count)
+      else
+        -- TODO: handle case where there is no free slot left
+        WriteLine("No free slot found")
+      end
+      return
+    end
+    -- we have an existing slot, check if there is enough space
+    freeSpace = turtle.getItemSpace(slot)
+    if (freeSpace ~= 0) then
+      -- transfer as many items as possible
+      local transferCount = math.min(freeSpace, count)
+      transferItemsFromTo(WORKING_SLOT, slot, transferCount)
+      count = count - transferCount
+      if (count == 0) then
+        return
+      end
+    end
+    -- there is no space left in the current slot, continue searching
+  end
+  -- TODO: handle case where there is no free slot left
+  WriteLine("No free slot found (2)")
 end
 
 -- performs multiple inventory management and cleanup tasks
@@ -59,20 +104,30 @@ end
 function updateInventory()
   -- update internal state
   for i = 1, INVENTORY_SLOT_COUNT do
-    Slots[i].Item = turtle.getItemDetail(i)
-    Slots[i].Count = turtle.getItemCount(i)
+    local item = turtle.getItemDetail(i)
+    if (item == nil) then
+      Slots[i].Item = nil
+      Slots[i].Count = 0
+    else
+      Slots[i].Item = item.name
+      Slots[i].Count = turtle.getItemCount(i)
+    end
   end
 end
 
 -- transfers 'count' items from slot 'from' to slot 'to' and triggers an internal state update
 function transferItemsFromTo(from, to, count)
+  WriteLine("Transferring " .. count .. " items from slot " .. from .. " to slot " .. to)
   turtle.select(from)
   turtle.transferTo(to, count)
   updateInventory()
 end
 
-function findNextSlotOfItemType(item)
-  for i = 1, INVENTORY_SLOT_COUNT do
+function findNextSlotOfItemType(start, item)
+  if (item == nil) then
+    return -1
+  end
+  for i = start, INVENTORY_SLOT_COUNT do
     if (Slots[i].Item == item and Slots[i].Count > 0) then
       return i
     end
@@ -90,10 +145,10 @@ function getNextFreeSlot(startIndex)
   return -1
 end
 
--- FIXME: currently not working!
 -- Stacks as many items as possible
 function stackifyInventory()
   for i = 1, INVENTORY_SLOT_COUNT do
+    turtle.select(i)
     for j = i + 1, INVENTORY_SLOT_COUNT do
       -- if the current slot is full goto next
       local currentFreeSpace = turtle.getItemSpace(i)
@@ -110,9 +165,9 @@ end
 
 -- fills up empty item slots, starting from the beginning (stable)
 function siftUp()
-  for i = 1, INVENTORY_SLOT_COUNT do 
+  for i = 1, INVENTORY_SLOT_COUNT do
     if (Slots[i].Count == 0) then
-      for j = i + 1, INVENTORY_SLOT_COUNT do 
+      for j = i + 1, INVENTORY_SLOT_COUNT do
         if (Slots[j].Count > 0) then
           transferItemsFromTo(j, i, Slots[j].Count)
         end
@@ -136,7 +191,6 @@ function cleanUpInventory()
   -- as everything is sifted up and in the top left corner of the inventory we only need to 
   -- check if the last slot is free
   local noSpace = Slots[INVENTORY_SLOT_COUNT].Count ~= 0
-
 
   if (noSpace) then
     -- drop unwanted items if there is not enough space to handle more initial / special items
@@ -170,7 +224,7 @@ function cleanUpInventory()
         end
       end
       if (droppedSuccessfully == false) then
-        for i = INVENTORY_SLOT_COUNT, 1 do 
+        for i = INVENTORY_SLOT_COUNT, 1, -1 do
           local currentSlot = Slots[i]
           if not(isValuableItem(currentSlot.Item)) then
             dropItem(i, currentSlot.Count)
@@ -212,12 +266,13 @@ function PrintHelp()
 
 end
 
--- FIXME: currently not working!
+-- builds a bridge if possible
 function BuildBridge()
-  local bridgeMaterialIndex = findNextSlotOfItemType(BridgeBlockItem)
+  local bridgeMaterialIndex = findNextSlotOfItemType(1, BridgeBlockItem)
   if (bridgeMaterialIndex ~= -1) then
     turtle.select(bridgeMaterialIndex)
     turtle.placeDown()
+    -- TODO: this is costly, find a better way to handle this
     manageInventory()
     return true
   end
@@ -225,14 +280,15 @@ function BuildBridge()
 end
 
 function DigForward()
+  turtle.select(WORKING_SLOT)
   while (turtle.detect()) do
     turtle.dig()
-    manageInventory()
+    storeToSlot()
   end
   turtle.forward()
   while (turtle.detectUp()) do
     turtle.digUp()
-    manageInventory()
+    storeToSlot()
   end
   while not(turtle.detectDown()) do
     if not(BuildBridge()) then
@@ -241,31 +297,61 @@ function DigForward()
   end
 end
 
-function Work(tunnelCount)
+function Work(tunnelCount, tunnelLength)
+  -- initialize inventory
   setupInventory()
-  for i = 1, tunnelCount do 
-    for j = 1, 3 do 
+  -- initial cleanup
+  manageInventory()
+  for i = 1, tunnelCount do
+    DigForward()
+    if (i % 2 == 0 and TorchItem ~= nil) then
+      turtle.up()
+      turtle.turnRight()
+      while (turtle.detect()) do
+        turtle.dig()
+        storeToSlot()
+      end
+      local torchSlot = findNextSlotOfItemType(1, TorchItem)
+      if (torchSlot ~= -1) then
+        turtle.select(torchSlot)
+        turtle.place()
+        manageInventory()
+      end
+      turtle.turnLeft()
+      turtle.down()
+    end
+    for j = 1, 2 do
       DigForward()
     end
     turtle.turnRight()
-    for j = 1, 5 do 
+    for j = 1, tunnelLength do
       DigForward()
     end
     turtle.turnRight()
     turtle.turnRight()
-    for j = 1, 10 do 
+    for j = 1, 2 * tunnelLength do
       DigForward()
     end
     turtle.turnRight()
     turtle.turnRight()
-    for j = 1, 5 do 
+    for j = 1, tunnelLength do
       DigForward()
     end
     turtle.turnLeft()
   end
+  -- move back to the starting position
+  turtle.turnRight()
+  turtle.turnRight()
+  for i = 1, 3 * tunnelCount do
+    turtle.forward()
+  end
 end
 
-Work(5)
+WriteLine("Enter the number of tunnels to dig:")
+local tunnelCount = tonumber(ReadLine())
+WriteLine("Enter the length of each tunnel:")
+local tunnelLength = tonumber(ReadLine())
+Work(tunnelCount, tunnelLength)
 --DigForward()
 
 
