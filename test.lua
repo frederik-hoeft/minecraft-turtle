@@ -328,9 +328,13 @@ function DigForward(tunnelHeight, offset)
   end
   tempOffset = 0
   local success = true
+  -- it is possible that gravel or sand fell down while we were digging a block
+  -- further up, so try to dig the block in front of us again (if any)
+  TryDigBlockFront()
   -- try to advance
   while not(turtle.forward()) do
-    -- if we can't advance, retry further up
+    -- if we can't advance, because there is a valuable block in front of us
+    -- try further up to see if we can advance there
     if (not(turtle.up())) then
       success = false
       break
@@ -575,7 +579,7 @@ function Work(tunnelCount, tunnelLength, tunnelHeight, torchPlacement, torchesAt
 end
 
 WriteLine("Provide the following items in the following slots (1-indexed):")
-WriteLine("Block to use for bridge building: slot " .. BRIDGE_BLOCK_SLOT)
+WriteLine("Bridge item: slot " .. BRIDGE_BLOCK_SLOT)
 WriteLine("Torch item: slot " .. TORCH_SLOT)
 WriteLine("Chest item: slot " .. CHEST_SLOT)
 WriteLine("Leave slot " .. WORKING_SLOT .. " empty at all times (working register)")
@@ -589,7 +593,8 @@ WriteLine("Torch placement every nth tunnel (n):")
 local torchPlacement = tonumber(ReadLine())
 WriteLine("Torches at end of tunnel? (y/n)")
 local torchesAtEnd = ReadLine() == "y"
-WriteLine("Enter IDs of valuable items that will not be mined (one per line, empty line to finish):")
+WriteLine("Perhaps there are valuable blocks you want to mine youself (e.g., with a fortune pickaxe)?")
+WriteLine("Enter IDs of blocks to navigate around, one per line, empty line to finish:")
 local valuableItem = ReadLine()
 local itemIndex = 1
 while (valuableItem ~= "") do
