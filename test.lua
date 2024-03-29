@@ -284,8 +284,8 @@ function TryDigBlockUp()
   turtle.digUp()
   StoreToSlot()
   -- continue retrying until the block is gone
-  while (turtle.detect()) do
-    turtle.dig()
+  while (turtle.detectUp()) do
+    turtle.digUp()
     StoreToSlot()
   end
   return true
@@ -370,7 +370,6 @@ end
 function TryPlaceTorch()
   local torchSlot = FindNextSlotOfItemType(1, TorchItem)
   if (torchSlot ~= -1) then
-    WriteLine("Placing torch")
     turtle.select(torchSlot)
     turtle.place()
     Slots[torchSlot].Count = Slots[torchSlot].Count - 1
@@ -539,7 +538,6 @@ function Work(tunnelCount, tunnelLength, tunnelHeight, torchPlacement, torchesAt
           end
           break
         else
-          WriteLine("Managed to dig a block as part of chest placement")
           previosBlockWasEmpty = true
         end
         if (not(turtle.up())) then
