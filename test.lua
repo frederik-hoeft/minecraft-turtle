@@ -390,7 +390,7 @@ end
 function RequiresInventoryFlush()
   -- as everything is sifted up and in the top left corner of the inventory we only need to
   -- check if the slot at index INVENTORY_SLOT_COUNT / 2 is not empty
-  return Slots[INVENTORY_SLOT_COUNT / 2].Count > 0
+  return Slots[(INVENTORY_SLOT_COUNT / 2) + 1].Count > 0
 end
 
 -- unloads the turtle's inventory into a chest, assuming the chest is in front of the turtle
