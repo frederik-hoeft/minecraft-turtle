@@ -486,6 +486,7 @@ function Work(tunnelCount, tunnelLength, tunnelHeight, torchPlacement, torchesAt
   local offset = 0
   local blocksMoved = 0
   for i = 1, tunnelCount do
+    WriteLine("Tunnel " .. i .. " of " .. tunnelCount .. " (fuel: " .. GetFuelLevel() .. ")")
     returnedOffset = DigForward(tunnelHeight, offset)
     if (returnedOffset == -1) then
       break
@@ -517,7 +518,6 @@ function Work(tunnelCount, tunnelLength, tunnelHeight, torchPlacement, torchesAt
     local returnToHome = false
     local previosBlockWasEmpty = false
     if (RequiresInventoryFlush() and ChestItem ~= nil) then
-      WriteLine("Inventory full, attempting to flush to chest")
       -- find an empty slot on the left of us to place a chest
       turtle.turnLeft()
       local tempOffset = offset
@@ -527,7 +527,6 @@ function Work(tunnelCount, tunnelLength, tunnelHeight, torchPlacement, torchesAt
           previosBlockWasEmpty = false
         elseif (previosBlockWasEmpty) then
           -- we found two empty blocks in a row, place a chest
-          WriteLine("Made enough space for chest")
           turtle.down()
           tempOffset = tempOffset - 1
           if (not TryPlaceChest()) then
@@ -576,9 +575,9 @@ function Work(tunnelCount, tunnelLength, tunnelHeight, torchPlacement, torchesAt
 end
 
 WriteLine("Provide the following items in the following slots (1-indexed):")
-WriteLine("Block to use for bridge building: slot" .. BRIDGE_BLOCK_SLOT)
-WriteLine("Torch item: slot" .. TORCH_SLOT)
-WriteLine("Chest item: slot" .. CHEST_SLOT)
+WriteLine("Block to use for bridge building: slot " .. BRIDGE_BLOCK_SLOT)
+WriteLine("Torch item: slot " .. TORCH_SLOT)
+WriteLine("Chest item: slot " .. CHEST_SLOT)
 WriteLine("Leave slot " .. WORKING_SLOT .. " empty at all times (working register)")
 WriteLine("Enter the number of tunnels to dig:")
 local tunnelCount = tonumber(ReadLine())
