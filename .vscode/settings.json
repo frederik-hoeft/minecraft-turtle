@@ -1,5 +1,7 @@
 {
     "Lua.diagnostics.globals": [
-        "turtle"
+        "turtle",
+        "read",
+        "write"
     ]
 }
