@@ -227,6 +227,7 @@ function BuildBridge()
     turtle.placeDown()
     local remainingBridgeBlocks = Slots[bridgeMaterialIndex].Count - 1
     Slots[bridgeMaterialIndex].Count = remainingBridgeBlocks
+    -- only re-index the inventory if we suspect that the remaining bridge blocks in the slot are not enough to finish the tunnel
     if (BlockGroundAreaPerTunnel - CurrentStepPerTunnel <= remainingBridgeBlocks) then
       ManageInventory()
     end
