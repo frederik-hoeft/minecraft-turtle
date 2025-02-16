@@ -9,6 +9,10 @@ TorchItem = nil
 ChestItem = nil
 
 SlotState = { Item = nil, Count = 0 }
+-- the ground area that needs to be covered per tunnel iteration
+BlockGroundAreaPerTunnel = 0
+-- the current step per tunnel iteration
+CurrentStepPerTunnel = 0
 
 function SlotState:create(o)
   o.parent = self
@@ -221,8 +225,11 @@ function BuildBridge()
   if (bridgeMaterialIndex ~= -1) then
     turtle.select(bridgeMaterialIndex)
     turtle.placeDown()
-    -- TODO: this is costly, find a better way to handle this
-    ManageInventory()
+    local remainingBridgeBlocks = Slots[bridgeMaterialIndex].Count - 1
+    Slots[bridgeMaterialIndex].Count = remainingBridgeBlocks
+    if (BlockGroundAreaPerTunnel - CurrentStepPerTunnel <= remainingBridgeBlocks) then
+      ManageInventory()
+    end
     return true
   end
   return false
@@ -358,6 +365,7 @@ function DigForward(tunnelHeight, offset)
       offset = offset - 1
     end
   end
+  CurrentStepPerTunnel = CurrentStepPerTunnel + 1
   -- we advanced, try to build a bridge, if necessary
   if (offset == 0) then
     -- only build a bridge if we are at the expected height
@@ -490,6 +498,7 @@ function Work(tunnelCount, tunnelLength, tunnelHeight, torchPlacement, torchesAt
   local offset = 0
   local blocksMoved = 0
   for i = 1, tunnelCount do
+    CurrentStepPerTunnel = 0
     WriteLine("Tunnel " .. i .. " of " .. tunnelCount .. " (fuel: " .. GetFuelLevel() .. ")")
     returnedOffset = DigForward(tunnelHeight, offset)
     if (returnedOffset == -1) then
@@ -506,7 +515,7 @@ function Work(tunnelCount, tunnelLength, tunnelHeight, torchPlacement, torchesAt
       local tempOffset = offset
       while (not(TryDigBlockFront()) and tempOffset < tunnelHeight and turtle.up()) do
         tempOffset = tempOffset + 1
-      end 
+      end
       -- if we managed to dig a block, place a torch
       if (tempOffset < tunnelHeight and TryDigBlockFront()) then
         TryPlaceTorch()
@@ -602,5 +611,7 @@ while (valuableItem ~= "") do
   itemIndex = itemIndex + 1
   valuableItem = ReadLine()
 end
+-- every 3 blocks, dig one tunnel in each direction (left, right) leaving two solid blocks between each tunnel iteration
+BlockGroundAreaPerTunnel = 3 + 2 + (2 * tunnelLength)
 Work(tunnelCount, tunnelLength, tunnelHeight, torchPlacement, torchesAtEnd)
 WriteLine("Done")
